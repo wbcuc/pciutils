@@ -1738,7 +1738,7 @@ show_caps(struct device *d, int where)
 	  id = get_conf_byte(d, where + PCI_CAP_LIST_ID);
 	  next = get_conf_byte(d, where + PCI_CAP_LIST_NEXT) & ~3;
 	  cap = get_conf_word(d, where + PCI_CAP_FLAGS);
-	  printf("[%02x] ", where);
+	  printf("[%02x] [%02x] ", where, id);
 	  if (been_there[where]++)
 	    {
 	      printf("<chain looped>\n");

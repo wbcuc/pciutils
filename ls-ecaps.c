@@ -957,7 +957,23 @@ dvsec_cxl_flex_bus(struct device *d, int where, int rev)
 
   if (rev < 1)
   {
-    printf("\t\tRevision %d not supported\n", rev);
+    //printf("\t\tRevision %d not supported\n", rev);
+	w = get_conf_word(d, where + PCI_CXL_FB_PORT_CAP);
+	printf("\t\tFBCap:\tCache%c IO%c Mem%c",
+		FLAG(w, PCI_CXL_FB_CAP_CACHE), FLAG(w, PCI_CXL_FB_CAP_IO),
+		FLAG(w, PCI_CXL_FB_CAP_MEM));	
+	w = get_conf_word(d, where + PCI_CXL_FB_PORT_CTRL);
+	printf("\n\t\tFBCtl:\tCache%c IO%c Mem%c SynHdrByp%c DrftBuf%c Retimer1%c Retimer2%c",
+		FLAG(w, PCI_CXL_FB_CTRL_CACHE), FLAG(w, PCI_CXL_FB_CTRL_IO),
+		FLAG(w, PCI_CXL_FB_CTRL_MEM), FLAG(w, PCI_CXL_FB_CTRL_SYNC_HDR_BYP),
+		FLAG(w, PCI_CXL_FB_CTRL_DRFT_BUF), 
+		FLAG(w, PCI_CXL_FB_CTRL_RETIMER1), FLAG(w, PCI_CXL_FB_CTRL_RETIMER2));		
+	w = get_conf_word(d, where + PCI_CXL_FB_PORT_STATUS);
+	printf("\n\t\tFBSta:\tCache%c IO%c Mem%c SynHdrByp%c DrftBuf%c Corr%c Uncorr%c UnexDrop%c\n",
+		FLAG(w, PCI_CXL_FB_STAT_CACHE), FLAG(w, PCI_CXL_FB_STAT_IO),
+		FLAG(w, PCI_CXL_FB_STAT_MEM), FLAG(w, PCI_CXL_FB_CTRL_SYNC_HDR_BYP), 
+		FLAG(w, PCI_CXL_FB_CTRL_DRFT_BUF),  FLAG(w, 0x100), 
+		FLAG(w, 0x200), FLAG(w, 0x400));		
     return;
   }
 
@@ -1058,7 +1074,7 @@ dvsec_cxl_function_map(struct device *d, int where)
 static void
 cap_dvsec_cxl(struct device *d, int id, int rev, int where, int len)
 {
-  printf(": CXL\n");
+  printf(": %s\n", (rev == 0) ? "CXL v1.1" : (rev == 1) ? "CXL v2.0" : "CXL");
   if (verbose < 2)
     return;
 
@@ -1125,7 +1141,7 @@ cap_evendor(struct device *d, int where)
 {
   u32 hdr;
 
-  printf("Vendor Specific Information: ");
+  printf("Vendor Specific Extended Information: ");
   if (!config_fetch(d, where + PCI_EVNDR_HEADER, 4))
     {
       printf("<unreadable>\n");
@@ -1407,6 +1423,53 @@ cap_doe(struct device *d, int where)
 	 FLAG(l, PCI_DOE_STS_OBJECT_READY));
 }
 
+static void
+cap_npem(struct device *d, int where)
+{
+  u32 l;
+
+  printf("Native PCIe Enclosure Management\n");
+
+  if (verbose < 2)
+    return;
+
+  if (!config_fetch(d, where + 4, 8))
+    {
+      printf("\t\t<unreadable>\n");
+      return;
+    }
+  l = get_conf_long(d, where + 0x04);//NPEM Capability Register
+  printf("\t\tCap: Cap%c Reset%c OK%c Loca%c Fail%c Rebu%c Pfa%c Spar%c Cri%c Fail%c InDev%c Dis%c\n",
+	 FLAG(l, 0x1), FLAG(l, 0x2),FLAG(l, 0x4),FLAG(l, 0x8),
+	 FLAG(l, 0x10),	 FLAG(l, 0x20),	 FLAG(l, 0x40), FLAG(l, 0x80),
+	 FLAG(l, 0x100), FLAG(l, 0x200), FLAG(l, 0x400), FLAG(l, 0x800)
+	 );  
+}
+
+static void
+cap_alt(struct device *d, int where) //steven
+{
+    u32 l;
+    printf("Alternate Protocol Extended\n");
+    if (verbose < 2)
+        return;    
+    if (!config_fetch(d, where, 24))
+    {
+      printf("\t\t<unreadable>\n");
+      return;
+    } 
+    l = get_conf_long(d, where + 0x04);//Capability Register
+    printf("\t\tCap: Count:%d Support%c\n", l & 0xff, FLAG(l, 0x100));
+    l = get_conf_long(d, where + 0x08);//Control Register
+    printf("\t\tCtl: Index:%d Global%c\n", l & 0xff, FLAG(l, 0x100)); 
+    l = get_conf_long(d, where + 0x0C);//Data1 Register
+    printf("\t\tData1: Usage:%d Detail:0x%x VenderID:0x%x\n", l & 0x7, (l & 0xffe0) >> 5, l >> 16);
+    l = get_conf_long(d, where + 0x10);//Data2 Register
+    printf("\t\tData2: MTS2:0x%x\n", l & 0xfff);
+    l = get_conf_long(d, where + 0x14);//Mask Register
+    printf("\t\tMask: PCIe:%c Others:0x%x\n", FLAG(l, 0x100), l >> 1);   
+}
+
 void
 show_ext_caps(struct device *d, int type)
 {
@@ -1428,7 +1491,7 @@ show_ext_caps(struct device *d, int type)
       printf("\tCapabilities: [%03x", where);
       if (verbose > 1)
 	printf(" v%d", version);
-      printf("] ");
+      printf("] [%04x] ", id);
       if (been_there[where]++)
 	{
 	  printf("<chain looped>\n");
@@ -1552,7 +1615,14 @@ show_ext_caps(struct device *d, int type)
 	    printf("Hierarchy ID <?>\n");
 	    break;
 	  case PCI_EXT_CAP_ID_NPEM:
-	    printf("Native PCIe Enclosure Management <?>\n");
+	    //printf("Native PCIe Enclosure Management <?>\n");
+		cap_npem(d, where);
+	    break;
+	  case PCI_EXT_CAP_ID_32GT:
+	    printf("Physical Layer 32.0 GT/s <?>\n");
+	    break;
+	  case PCI_EXT_CAP_ID_ALT:
+        cap_alt(d, where);
 	    break;
 	  case PCI_EXT_CAP_ID_DOE:
 	    cap_doe(d, where);
