@@ -722,16 +722,17 @@ dvsec_cxl_device(struct device *d, int rev, int where, int len)
     return;
 
   /* Legacy 1.1 revs aren't handled */
-  if (rev < 1)
-    return;
+  //if (rev < 1)
+    //return;
 
   w = get_conf_word(d, where + PCI_CXL_DEV_CAP);
-  printf("\t\tCXLCap:\tCache%c IO%c Mem%c Mem HW Init%c HDMCount %d Viral%c\n",
+  printf("\t\tCXLCap:\tCache%c IO%c Mem%c MemHWInit%c HDMCount %d CacheCap%c ResetCap%c Timeout %d MemClr%c Multiple%c Viral%c PMHwInit%c\n",
     FLAG(w, PCI_CXL_DEV_CAP_CACHE), FLAG(w, PCI_CXL_DEV_CAP_IO), FLAG(w, PCI_CXL_DEV_CAP_MEM),
-    FLAG(w, PCI_CXL_DEV_CAP_MEM_HWINIT), PCI_CXL_DEV_CAP_HDM_CNT(w), FLAG(w, PCI_CXL_DEV_CAP_VIRAL));
+    FLAG(w, PCI_CXL_DEV_CAP_MEM_HWINIT), PCI_CXL_DEV_CAP_HDM_CNT(w), FLAG(w, 0x40), FLAG(w, 0x80), PCI_CXL_DEV_CAP_RESET_CNT(w), FLAG(w, 0x800), 
+	FLAG(w, 0x2000), FLAG(w, PCI_CXL_DEV_CAP_VIRAL), FLAG(w, PCI_CXL_DEV_CAP_HWINIT));
 
   w = get_conf_word(d, where + PCI_CXL_DEV_CTRL);
-  printf("\t\tCXLCtl:\tCache%c IO%c Mem%c Cache SF Cov %d Cache SF Gran %d Cache Clean%c Viral%c\n",
+  printf("\t\tCXLCtl:\tCache%c IO%c Mem%c CacheSFCov %d CacheSFGran %d CacheClean%c Viral%c\n",
     FLAG(w, PCI_CXL_DEV_CTRL_CACHE), FLAG(w, PCI_CXL_DEV_CTRL_IO), FLAG(w, PCI_CXL_DEV_CTRL_MEM),
     PCI_CXL_DEV_CTRL_CACHE_SF_COV(w), PCI_CXL_DEV_CTRL_CACHE_SF_GRAN(w), FLAG(w, PCI_CXL_DEV_CTRL_CACHE_CLN),
     FLAG(w, PCI_CXL_DEV_CTRL_VIRAL));
@@ -739,9 +740,16 @@ dvsec_cxl_device(struct device *d, int rev, int where, int len)
   w = get_conf_word(d, where + PCI_CXL_DEV_STATUS);
   printf("\t\tCXLSta:\tViral%c\n", FLAG(w, PCI_CXL_DEV_STATUS_VIRAL));
 
+  w = get_conf_word(d, where + PCI_CXL_DEV_CTRL2);
+  printf("\t\tCXLCtl2: DisCache%c InitiateCache%c CXLReset%c ResetMemClr%c\n", 
+    FLAG(w, PCI_CXL_DEV_CTRL2_DIS_CACHE), FLAG(w, PCI_CXL_DEV_CTRL2_INITIATE_CACHE), FLAG(w, PCI_CXL_DEV_CTRL2_RESET), FLAG(w, PCI_CXL_DEV_CTRL2_MEMCLR));
+
   w = get_conf_word(d, where + PCI_CXL_DEV_STATUS2);
-  printf("\t\tCXLSta2:\tResetComplete%c ResetError%c PMComplete%c\n",
-    FLAG(w, PCI_CXL_DEV_STATUS_RC), FLAG(w,PCI_CXL_DEV_STATUS_RE), FLAG(w, PCI_CXL_DEV_STATUS_PMC));
+  printf("\t\tCXLSta2: CacheInvalid%c ResetComplete%c ResetError%c PMComplete%c\n",
+    FLAG(w, 0x0001), FLAG(w, PCI_CXL_DEV_STATUS_RC), FLAG(w,PCI_CXL_DEV_STATUS_RE), FLAG(w, PCI_CXL_DEV_STATUS_PMC));
+
+  w = get_conf_word(d, where + PCI_CXL_DEV_LOCK);
+  printf("\t\tCXLLock: Lock%c\n", FLAG(w, PCI_CXL_DEV_CONFIG_LOCK));
 
   w = get_conf_word(d, where + PCI_CXL_DEV_CAP2);
   cache_unit_size = BITS(w, 0, 4);
@@ -749,16 +757,16 @@ dvsec_cxl_device(struct device *d, int rev, int where, int len)
   switch (cache_unit_size)
     {
       case PCI_CXL_DEV_CAP2_CACHE_1M:
-        printf("\t\tCache Size: %08x\n", cache_size * (1<<20));
+        printf("\t\tCXLCap2: Cache Size: %08x\n", cache_size * (1<<20));
 	break;
       case PCI_CXL_DEV_CAP2_CACHE_64K:
-        printf("\t\tCache Size: %08x\n", cache_size * (64<<10));
+        printf("\t\tCXLCap2: Cache Size: %08x\n", cache_size * (64<<10));
 	break;
       case PCI_CXL_DEV_CAP2_CACHE_UNK:
-        printf("\t\tCache Size Not Reported\n");
+        printf("\t\tCXLCap2: Cache Size Not Reported\n");
 	break;
       default:
-        printf("\t\tCache Size: %d of unknown unit size (%d)\n", cache_size, cache_unit_size);
+        printf("\t\tCXLCap2: Cache Size: %d of unknown unit size (%d)\n", cache_size, cache_unit_size);
 	break;
     }
 
@@ -1036,12 +1044,44 @@ static void
 dvsec_cxl_mld(struct device *d, int where)
 {
   u16 w;
-
   w = get_conf_word(d, where + PCI_CXL_MLD_NUM_LD);
 
   /* Encodings greater than 16 are reserved */
   if (w && w <= PCI_CXL_MLD_MAX_LD)
     printf("\t\tNumLogDevs: %d\n", w);
+}
+
+static void
+dvsec_cxl_test(struct device *d, int where)
+{
+  u16 w;
+  u32 cache_size, cache_unit_size;
+
+  w = get_conf_word(d, where + PCI_CXL_DEV_TEST_LOCK);
+  printf("\t\tTestLock: Lock%c\n", FLAG(w, PCI_CXL_DEV_TESTLOCK));
+
+  w = get_conf_word(d, where + PCI_CXL_DEV_TEST_CAP1);
+  printf("\t\tTestCap1: SelfChecking%c Algorithm1a%c Algorithm1b%c Algorithma%c RdCurr%c RdOwn%c RdShare%c RdAny%c\n", 
+    FLAG(w, 0x0001), FLAG(w, 0x0002), FLAG(w, 0x0004), FLAG(w, 0x0008), FLAG(w, 0x0010), FLAG(w, 0x0020), FLAG(w, 0x0040), FLAG(w, 0x0080));
+
+  w = get_conf_word(d, where + PCI_CXL_DEV_TEST_CAP2);
+  cache_unit_size = BITS(w, 14, 2);
+  cache_size = BITS(w, 0, 14);
+  switch (cache_unit_size)
+    {
+      case PCI_CXL_DEV_TEST_CACHE_M:
+        printf("\t\tTestCap2: Cache Size: %08x\n", cache_size * (1<<20));
+	break;
+      case PCI_CXL_DEV_TEST_CACHE_K:
+        printf("\t\tTestCap2: Cache Size: %08x\n", cache_size * (1<<10));
+	break;
+      case PCI_CXL_DEV_TEST_CACHE_B:
+        printf("\t\tTestCap2: Cache Size: %08x\n", cache_size);
+	break;
+      default:
+        printf("\t\tTestCap2: Cache Size: %d of unknown unit size (%d)\n", cache_size, cache_unit_size);
+	break;
+    }  
 }
 
 static void
@@ -1109,6 +1149,9 @@ cap_dvsec_cxl(struct device *d, int id, int rev, int where, int len)
     case 9:
       dvsec_cxl_mld(d, where);
       break;
+    case 0xa:
+      dvsec_cxl_test(d, where);
+      break;	  
     default:
       printf("\t\tUnknown ID %04x\n", id);
     }

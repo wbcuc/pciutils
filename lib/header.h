@@ -1084,7 +1084,9 @@
 #define  PCI_CXL_DEV_CAP_MEM		0x0004	/* CXL.mem Protocol Support */
 #define  PCI_CXL_DEV_CAP_MEM_HWINIT	0x0008	/* CXL.mem Initializes with HW/FW Support */
 #define  PCI_CXL_DEV_CAP_HDM_CNT(x)	(((x) & (3 << 4)) >> 4)	/* CXL Number of HDM ranges */
+#define  PCI_CXL_DEV_CAP_RESET_CNT(x)	(((x) & (7 << 8)) >> 8)	/* CXL Reset Timeout */
 #define  PCI_CXL_DEV_CAP_VIRAL		0x4000	/* CXL Viral Handling Support */
+#define  PCI_CXL_DEV_CAP_HWINIT		0x8000	/* CXL Viral Handling Support */
 #define PCI_CXL_DEV_CTRL		0x0c	/* CXL Control Register */
 #define  PCI_CXL_DEV_CTRL_CACHE		0x0001	/* CXL.cache Protocol Enable */
 #define  PCI_CXL_DEV_CTRL_IO		0x0002	/* CXL.io Protocol Enable */
@@ -1095,11 +1097,18 @@
 #define  PCI_CXL_DEV_CTRL_VIRAL		0x4000	/* CXL Viral Handling Enable */
 #define PCI_CXL_DEV_STATUS		0x0e	/* CXL Status Register */
 #define  PCI_CXL_DEV_STATUS_VIRAL	0x4000	/* CXL Viral Handling Status */
+#define PCI_CXL_DEV_CTRL2		0x10	/* CXL Control Register */
+#define  PCI_CXL_DEV_CTRL2_DIS_CACHE		0x0001	/* CXL Disable Caching */
+#define  PCI_CXL_DEV_CTRL2_INITIATE_CACHE		0x0002	/* Initiate Cache Write Back and Invalidation */
+#define  PCI_CXL_DEV_CTRL2_RESET		0x0004	/* CXL Reset */
+#define  PCI_CXL_DEV_CTRL2_MEMCLR		0x0008	/* CXL Reset Mem Clr Enable */
 #define PCI_CXL_DEV_STATUS2		0x12
 #define  PCI_CXL_DEV_STATUS_CACHE_INV	0x0001
 #define  PCI_CXL_DEV_STATUS_RC		0x0002  /* Device Reset Complete */
 #define  PCI_CXL_DEV_STATUS_RE		0x0004  /* Device Reset Error */
 #define  PCI_CXL_DEV_STATUS_PMC		0x8000  /* Power Management Init Complete */
+#define PCI_CXL_DEV_LOCK		0x14  /* DVSEC CXL Lock */
+#define  PCI_CXL_DEV_CONFIG_LOCK		0x0001  /* CONFIG_LOCK */
 #define PCI_CXL_DEV_CAP2		0x16
 #define  PCI_CXL_DEV_CAP2_CACHE_UNK	0x0000	/* Cache Size Isn't Reported */
 #define  PCI_CXL_DEV_CAP2_CACHE_64K	0x0001  /* Unit Size 64K */
@@ -1118,6 +1127,15 @@
 #define PCI_CXL_DEV_RANGE2_SIZE_LO	0x2c
 #define PCI_CXL_DEV_RANGE2_BASE_HI	0x30
 #define PCI_CXL_DEV_RANGE2_BASE_LO	0x34
+#define PCI_CXL_DEV_TEST_LOCK		0x0a	/* CXL Test Lock */
+#define PCI_CXL_DEV_TESTLOCK		0x0001	/* CXL Test Lock */
+#define PCI_CXL_DEV_TEST_CAP1		0x0c	/* CXL Test Capability1 */
+#define PCI_CXL_DEV_TEST_CAP2		0x10	/* CXL Test Capability2 */
+#define  PCI_CXL_DEV_TEST_CACHE_B	0x0000	/* Cache Size 1B*/
+#define  PCI_CXL_DEV_TEST_CACHE_K	0x0001  /* Unit Size 1K */
+#define  PCI_CXL_DEV_TEST_CACHE_M	0x0002  /* Unit Size 1M */
+#define PCI_CXL_DEV_TEST_CONF_LOW		0x14	/* CXL Test Configuration Base Low */
+#define PCI_CXL_DEV_TEST_CONF_HIGH		0x18	/* CXL Test Configuration Base High */
 
 /* PCIe CXL 2.0 Designated Vendor-Specific Capabilities for Ports */
 #define PCI_CXL_PORT_EXT_LEN 0x28 /* CXL Extensions DVSEC for Ports Length */
