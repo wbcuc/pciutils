@@ -83,11 +83,12 @@ cap_sec(struct device *d, int where)
 {
   u32 ctrl3, lane_err_stat;
   u8 lane;
+  u16 lane_eq;
   printf("Secondary PCI Express\n");
   if (verbose < 2)
     return;
 
-  if (!config_fetch(d, where + PCI_SEC_LNKCTL3, 12))
+  if (!config_fetch(d, where + PCI_SEC_LNKCTL3, 44))
     return;
 
   ctrl3 = get_conf_word(d, where + PCI_SEC_LNKCTL3);
@@ -107,6 +108,100 @@ cap_sec(struct device *d, int where)
   else
     printf("0");
   printf("\n");
+  printf("\t\tLaneEqCtl: \n");
+  for (lane = 0; lane < 16; lane += 1)
+  {
+    lane_eq = get_conf_word(d, where + PCI_SEC_LANE_EQU_CTRL + 2 * lane);
+    printf("\t\t\tLane%d: %04x\n", lane, lane_eq);
+  }	
+}
+
+static void
+cap_16g(struct device *d, int where)
+{
+  u32 status;
+  u8 lane;
+  u16 lane_eq;
+  printf("Physical Layer 16.0 GT/s\n");
+  if (verbose < 2)
+    return;
+#define PCI_16GT_STATUS     0x0c
+#define PCI_16GT_PARITY_STATUS     0x10
+#define PCI_RETIMER_PARITY_STATUS     0x14
+#define PCI_RETIMER2_PARITY_STATUS     0x18
+#define PCI_16GT_EQ_CNTL     0x20
+  if (!config_fetch(d, where + 0, 48))
+    return;
+
+  status = get_conf_word(d, where + PCI_16GT_STATUS);
+  printf("\t\tLnkSta: Eqcpl%c EqPh1%c EqPh2%c EqPh3%c EqReq%c\n",
+	FLAG(status, 0x1), FLAG(status, 0x2), FLAG(status, 0x4),
+    FLAG(status, 0x8), FLAG(status, 0x10));
+
+  status = get_conf_word(d, where + PCI_16GT_PARITY_STATUS);
+  printf("\t\tParStat: %x\n", status);
+
+  status = get_conf_word(d, where + PCI_RETIMER_PARITY_STATUS);
+  printf("\t\tRetiStat: %x\n", status);
+
+  status = get_conf_word(d, where + PCI_RETIMER2_PARITY_STATUS);
+  printf("\t\tReti2Stat: %x\n", status);
+
+  printf("\t\tLaneEqCtl: \n");
+  for (lane = 0; lane < 16; lane += 1)
+  {
+    lane_eq = get_conf_byte(d, where + PCI_16GT_EQ_CNTL + lane);
+    printf("\t\t\tLane%d: %x\n", lane, lane_eq);
+  }
+}
+
+static void
+cap_32g(struct device *d, int where)
+{
+  u32 status;
+  u8 lane;
+  u16 lane_eq;
+  printf("Physical Layer 32.0 GT/s\n");
+  if (verbose < 2)
+    return;
+#define PCI_32GT_CONTRL     0x08
+#define PCI_32GT_STATUS     0x0c
+#define PCI_32GT_REV_TS1    0x10
+#define PCI_32GT_REV_TS2     0x14
+#define PCI_32GT_TAN_TS1     0x18
+#define PCI_32GT_TAN_TS2     0x1c
+#define PCI_32GT_EQ_CNTL     0x20
+  if (!config_fetch(d, where + 0, 48))
+    return;
+  status = get_conf_word(d, where + PCI_32GT_CONTRL);
+  printf("\t\tLnkCtrl: ByDis%c NoEqDis%c TsUse %d\n",
+	FLAG(status, 0x1), FLAG(status, 0x2), BITS(status, 8, 3));
+
+  status = get_conf_word(d, where + PCI_32GT_STATUS);
+  printf("\t\tLnkSta: Eqcpl%c EqPh1%c EqPh2%c EqPh3%c EqReq%c TsRec%c LnkCrl %d Precod%c PrecodR%c NoEq%c\n",
+	FLAG(status, 0x1), FLAG(status, 0x2), FLAG(status, 0x4),
+    FLAG(status, 0x8), FLAG(status, 0x10), FLAG(status, 0x20),
+    BITS(status, 6, 2), FLAG(status, 0x100), FLAG(status, 0x200),
+    FLAG(status, 0x400));
+
+  status = get_conf_word(d, where + PCI_32GT_REV_TS1);
+  printf("\t\tRevTs1: Mod %d Info1 %x VeID %x\n", BITS(status, 0, 3), BITS(status, 3, 13), status >> 16);
+
+  status = get_conf_word(d, where + PCI_32GT_REV_TS2);
+  printf("\t\tRevTs2: Info2 %x AltSta %d\n", status & 0xffffff, BITS(status, 24, 2));
+
+  status = get_conf_word(d, where + PCI_32GT_TAN_TS1);
+  printf("\t\tTranTs1: Mod %d Info1 %x VeID %x\n", BITS(status, 0, 3), BITS(status, 3, 13), status >> 16);
+
+  status = get_conf_word(d, where + PCI_32GT_TAN_TS2);
+  printf("\t\tTranTs2: Info2 %x AltSta %d\n", status & 0xffffff, BITS(status, 24, 2));
+
+  printf("\t\tLaneEqCtl: \n");
+  for (lane = 0; lane < 16; lane += 1)
+  {
+    lane_eq = get_conf_byte(d, where + PCI_32GT_EQ_CNTL + lane);
+    printf("\t\t\tLane%d: %x\n", lane, lane_eq);
+  }
 }
 
 static void
@@ -1840,7 +1935,8 @@ show_ext_caps(struct device *d, int type)
 	    printf("Data Link Feature <?>\n");
 	    break;
 	  case PCI_EXT_CAP_ID_16GT:
-	    printf("Physical Layer 16.0 GT/s <?>\n");
+	    //printf("Physical Layer 16.0 GT/s <?>\n");
+	    cap_16g(d, where);
 	    break;
 	  case PCI_EXT_CAP_ID_LMR:
 	    cap_lmr(d, where);
@@ -1851,9 +1947,10 @@ show_ext_caps(struct device *d, int type)
 	  case PCI_EXT_CAP_ID_NPEM:
 	    printf("Native PCIe Enclosure Management <?>\n");
 	    break;
-      case PCI_EXT_CAP_ID_32GT:
-	    printf("Physical Layer 32.0 GT/s <?>\n");
-        break;
+	  case PCI_EXT_CAP_ID_32GT:
+	     //printf("Physical Layer 32.0 GT/s <?>\n");
+	     cap_32g(d, where);
+             break;
 	  case PCI_EXT_CAP_ID_DOE:
 	    cap_doe(d, where);
 	    break;
